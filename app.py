@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 # page configuration
@@ -86,12 +87,12 @@ tab_list = [
     "📈 Scatter (Cenk)", 
     "📊 Box Plot (Cenk)", 
     "🌳 Treemap (Cenk)",
-    "Team 1: Bar Chart", 
-    "Team 2: Histogram", 
-    "Team 3: Heatmap",
-    "Team 4: Violin", 
-    "Team 5: Sunburst", 
-    "Team 6: Parallel"
+    "📈 Stacked Area (İlhan)",
+    "🌊 Sankey (İlhan)", 
+    "📉 Line Chart (İlhan)",
+    "📊 Parallel Coordinates (Hilmi)", 
+    "📈 Stacked Area (Hilmi)", 
+    "🏆 Top 20 Games (Hilmi)"
 ]
 tabs = st.tabs(tab_list)
 
@@ -155,20 +156,27 @@ with tabs[2]:
 # -----------------
 # CHARTS of Hilmi   # -----------------
 
-with tabs[3]:
-    st.header("1. Chart (Parallel Coordinates): Regional Sales Profiles of Genres")
+with tabs[6]:
+    st.header("Parallel Coordinates (Hilmi): Regional Sales Profiles of Genres")
     st.markdown("Compares the regional sales profiles of different **Genres**. You can use brushing on the axes to highlight games that fit a specific sales pattern.")
 
     # Prepared by: Hilmi
-    #st.markdown("**Prepared by: Hilmi**")
+    st.markdown("**Prepared by: Hilmi**")
 
     # Select only the relevant columns for the plot.
     df_parallel = df_filtered[['Genre', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales']].copy()
     
+    # Genre'yi sayısal bir ID'ye dönüştür (color parametresi için sayısal değer gerekli)
+    genre_map = {genre: idx for idx, genre in enumerate(df_parallel['Genre'].unique())}
+    df_parallel['Genre_ID'] = df_parallel['Genre'].map(genre_map)
+    
     # Create the Parallel Coordinates Plot using Plotly Express
+    # dimensions'da sadece sayısal kolonları kullan, color için Genre_ID kullan
     fig_par = px.parallel_coordinates(
         df_parallel,
-        color="Genre", # Color by Genre
+        dimensions=['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales'],
+        color="Genre_ID", # Color by Genre ID (sayısal değer)
+        color_continuous_scale=px.colors.qualitative.Set3,
         labels={
             "NA_Sales": "North America (NA)",
             "EU_Sales": "Europe (EU)",
@@ -177,18 +185,23 @@ with tabs[3]:
         },
         title="Regional Sales Profiles by Game Genre (Million Dollars)"
     )
-
-    # Move legend to the top-right
-    fig_par.update_layout(legend_orientation="h", legend_y=1.1, legend_x=0.5)
+    
+    # Colorbar'ı gizle çünkü Genre_ID sayısal, Genre isimlerini gösteremeyiz
+    fig_par.update_layout(
+        coloraxis_showscale=False
+    )
+    
+    # Genre bilgisini göstermek için bir bilgi notu ekle
+    st.info("💡 Grafikteki renkler farklı oyun türlerini (Genre) temsil eder. Her tür için farklı bir renk kullanılmıştır.")
 
     st.plotly_chart(fig_par, use_container_width=True)
 
-with tabs[4]:
-    st.header("2. Chart (Stacked Area Chart): Genre Market Share Change Over Years")
+with tabs[7]:
+    st.header("Stacked Area Chart (Hilmi): Genre Market Share Change Over Years")
     st.markdown("Shows how the total market share of different **Genres** has changed over the **Years** (As a percentage of Global Sales).")
 
     # Prepared by: Hilmi
-    #st.markdown("**Prepared by: Hilmi**")
+    st.markdown("**Prepared by: Hilmi**")
 
     # 1. Calculate total sales by Year and Genre
     sales_by_year_genre = df_filtered.groupby(['Year', 'Genre'])['Global_Sales'].sum().reset_index()
@@ -225,8 +238,310 @@ with tabs[4]:
     
     st.plotly_chart(fig_area, use_container_width=True)
 
+with tabs[3]:
+    st.header("Stacked Area Chart: Platform Popularity Over Years")
+    st.markdown("This chart shows the sales trends of the top 12 platforms by total sales over the years in a stacked format. It visualizes the rise and fall of platforms (for example, PS2 being replaced by PS3).")
+    
+    # Veri hazırlığı - NaN değerleri temizle
+    df_clean = df_filtered.dropna(subset=['Year', 'Global_Sales', 'Platform']).copy()
+    df_clean['Year'] = df_clean['Year'].astype(int)
+    
+    # Grafik karmaşık olmasın diye EN ÇOK SATAN 12 PLATFORMU alıyoruz
+    top_platforms = df_clean.groupby('Platform')['Global_Sales'].sum().nlargest(12).index
+    df_chart = df_clean[df_clean['Platform'].isin(top_platforms)].copy()
+    
+    # Platform x Year, Global_Sales toplamı
+    df_chart = df_chart.groupby(['Platform', 'Year'])['Global_Sales'].sum().reset_index()
+    
+    # Platformları çıkış yılına göre sıralayalım (Eskiden yeniye akış için)
+    platform_order = df_chart.groupby('Platform')['Year'].min().sort_values().index
+    
+    # Tüm platform-yıl kombinasyonlarını oluştur (eksik olanları 0 ile doldur)
+    # Bu, 2000'den önceki verilerin doğru gösterilmesi için önemli
+    min_year = int(df_chart['Year'].min())
+    max_year = int(df_chart['Year'].max())
+    all_years = list(range(min_year, max_year + 1))
+    all_platforms = list(df_chart['Platform'].unique())
+    
+    # Tüm kombinasyonları oluştur (pandas MultiIndex kullanarak)
+    multi_index = pd.MultiIndex.from_product([all_platforms, all_years], names=['Platform', 'Year'])
+    all_combinations = pd.DataFrame(index=multi_index).reset_index()
+    
+    # Mevcut verilerle birleştir ve eksik olanları 0 ile doldur
+    df_chart = all_combinations.merge(df_chart, on=['Platform', 'Year'], how='left')
+    df_chart['Global_Sales'] = df_chart['Global_Sales'].fillna(0)
+    
+    # Veri tiplerini düzelt
+    df_chart['Year'] = df_chart['Year'].astype(int)
+    df_chart['Global_Sales'] = df_chart['Global_Sales'].astype(float)
+    
+    # Yıla göre sırala (her platform için)
+    df_chart = df_chart.sort_values(['Platform', 'Year']).reset_index(drop=True)
+    
+    # STACKED AREA CHART (YIĞILMIŞ ALAN GRAFİĞİ)
+    fig_stacked = px.area(
+        df_chart,
+        x="Year",
+        y="Global_Sales",
+        color="Platform",
+        category_orders={"Platform": list(platform_order)},  # Sıralı renklendirme
+        title="Platform Market Share Over Years (Stacked)",
+        template="plotly_dark",
+        height=600  # Tek parça olduğu için aşırı yüksekliğe gerek yok
+    )
+    
+    # Fine-tuning
+    fig_stacked.update_layout(
+        xaxis_title="Year",
+        yaxis_title="Total Global Sales (Million)",
+        legend_title="Platforms",
+        hovermode='x unified'  # Mouse'un X eksenindeki konumuna göre o yılın tüm platform verilerini göster
+    )
+    
+    # Hover'ın mouse'un grafikteki yerine göre o yılın verilerini göstermesi için trace'leri güncelle
+    for trace in fig_stacked.data:
+        trace.update(
+            hovertemplate='<b>%{fullData.name}</b><br>' +
+                          'Year: %{x}<br>' +
+                          'Sales: %{y:.2f}M$<br>' +
+                          '<extra></extra>',
+            fill='tonexty',  # Stacked area için fill ayarı
+            line=dict(width=0)  # Çizgi kalınlığını 0 yap, sadece alan hover'ı tetiklesin
+        )
+    
+    st.plotly_chart(fig_stacked, use_container_width=True)
+
+with tabs[4]:
+    st.header("Sankey Diagram: Publisher → Genre → Platform Sales Flow")
+    st.markdown("This chart shows a flow diagram of how the sales of the top 5 publishers flow to different game genres (Genre) and then to different platforms (Platform). Select a genre to highlight only its flows.")
+    
+    # En büyük 5 yayıncıyı bul (Global_Sales toplamına göre - filtrelenmiş veriden)
+    top_publishers = df_filtered.groupby('Publisher')['Global_Sales'].sum().nlargest(5).index.tolist()
+    df_sankey = df_filtered[df_filtered['Publisher'].isin(top_publishers)].copy()
+    
+    # Publisher -> Genre -> Platform akışını hesapla
+    # Kaynak: Publisher, Hedef 1: Genre, Hedef 2: Platform
+    # İki aşamalı akış: Publisher->Genre ve Genre->Platform
+    
+    # 1. Publisher -> Genre akışı
+    pub_genre = df_sankey.groupby(['Publisher', 'Genre'])['Global_Sales'].sum().reset_index()
+    pub_genre.columns = ['Source', 'Target', 'Value']
+    
+    # 2. Genre -> Platform akışı (aynı publisher'lar için)
+    genre_platform = df_sankey.groupby(['Genre', 'Platform'])['Global_Sales'].sum().reset_index()
+    genre_platform.columns = ['Source', 'Target', 'Value']
+    
+    # Tüm node'ları topla (unique değerler)
+    all_nodes = set()
+    all_nodes.update(pub_genre['Source'].unique())
+    all_nodes.update(pub_genre['Target'].unique())
+    all_nodes.update(genre_platform['Source'].unique())
+    all_nodes.update(genre_platform['Target'].unique())
+    
+    # Node listesi oluştur
+    node_list = sorted(list(all_nodes))
+    node_dict = {node: idx for idx, node in enumerate(node_list)}
+    
+    # Node tiplerini belirle (Publisher, Genre, Platform)
+    publisher_nodes = set(pub_genre['Source'].unique())
+    genre_nodes = set(pub_genre['Target'].unique())
+    platform_nodes = set(genre_platform['Target'].unique())
+    
+    # Genre seçimi için dropdown
+    all_genres_list = sorted(list(genre_nodes))
+    selected_genre = st.selectbox(
+        "Select a Genre to Highlight:",
+        options=['All'] + all_genres_list,
+        index=0,
+        key='sankey_genre_selector'
+    )
+    
+    # Renk paletleri
+    publisher_colors = px.colors.qualitative.Set1[:len(publisher_nodes)]
+    genre_colors = px.colors.qualitative.Pastel[:len(genre_nodes)]
+    platform_colors = px.colors.qualitative.Set3[:len(platform_nodes)]
+    
+    # Node renklerini atama (orijinal renkler)
+    publisher_color_map = {pub: publisher_colors[i % len(publisher_colors)] 
+                          for i, pub in enumerate(sorted(publisher_nodes))}
+    genre_color_map = {genre: genre_colors[i % len(genre_colors)] 
+                      for i, genre in enumerate(sorted(genre_nodes))}
+    platform_color_map = {platform: platform_colors[i % len(platform_colors)] 
+                         for i, platform in enumerate(sorted(platform_nodes))}
+    
+    # Seçilen genre'ye göre renkleri belirle
+    node_colors = []
+    highlighted_nodes = set()
+    
+    if selected_genre == 'All':
+        # Tüm node'lar renkli
+        for node in node_list:
+            if node in publisher_color_map:
+                node_colors.append(publisher_color_map[node])
+            elif node in genre_color_map:
+                node_colors.append(genre_color_map[node])
+            elif node in platform_color_map:
+                node_colors.append(platform_color_map[node])
+            else:
+                node_colors.append('#d3d3d3')
+        highlighted_nodes = set(node_list)
+    else:
+        # Sadece seçilen genre ve onunla bağlantılı node'lar renkli
+        highlighted_nodes.add(selected_genre)
+        
+        # Seçilen genre'ye bağlı publisher'ları bul
+        connected_publishers = set(pub_genre[pub_genre['Target'] == selected_genre]['Source'].unique())
+        highlighted_nodes.update(connected_publishers)
+        
+        # Seçilen genre'ye bağlı platform'ları bul
+        connected_platforms = set(genre_platform[genre_platform['Source'] == selected_genre]['Target'].unique())
+        highlighted_nodes.update(connected_platforms)
+        
+        # Node renklerini atama (highlighted olanlar renkli, diğerleri gri)
+        for node in node_list:
+            if node in highlighted_nodes:
+                if node in publisher_color_map:
+                    node_colors.append(publisher_color_map[node])
+                elif node in genre_color_map:
+                    node_colors.append(genre_color_map[node])
+                elif node in platform_color_map:
+                    node_colors.append(platform_color_map[node])
+                else:
+                    node_colors.append('#d3d3d3')
+            else:
+                node_colors.append('#d3d3d3')  # Gri
+    
+    # Link'leri oluştur ve renklerini belirle
+    links = []
+    link_colors = []
+    
+    # Hex rengi rgba'ya çeviren yardımcı fonksiyon
+    def hex_to_rgba(hex_color, alpha=0.6):
+        hex_color = hex_color.lstrip('#')
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        return f'rgba({r},{g},{b},{alpha})'
+    
+    # Publisher -> Genre link'leri
+    for _, row in pub_genre.iterrows():
+        source_idx = node_dict[row['Source']]
+        target_idx = node_dict[row['Target']]
+        links.append({
+            'source': source_idx,
+            'target': target_idx,
+            'value': row['Value']
+        })
+        # Link rengi: eğer her iki node da highlighted ise renkli, değilse gri
+        if row['Source'] in highlighted_nodes and row['Target'] in highlighted_nodes:
+            source_color = node_colors[source_idx]
+            if source_color.startswith('#'):
+                link_colors.append(hex_to_rgba(source_color, 0.5))
+            else:
+                link_colors.append(source_color)
+        else:
+            link_colors.append('rgba(128,128,128,0.3)')  # Gri ve şeffaf
+    
+    # Genre -> Platform link'leri
+    for _, row in genre_platform.iterrows():
+        source_idx = node_dict[row['Source']]
+        target_idx = node_dict[row['Target']]
+        links.append({
+            'source': source_idx,
+            'target': target_idx,
+            'value': row['Value']
+        })
+        # Link rengi: eğer her iki node da highlighted ise renkli, değilse gri
+        if row['Source'] in highlighted_nodes and row['Target'] in highlighted_nodes:
+            source_color = node_colors[source_idx]
+            if source_color.startswith('#'):
+                link_colors.append(hex_to_rgba(source_color, 0.5))
+            else:
+                link_colors.append(source_color)
+        else:
+            link_colors.append('rgba(128,128,128,0.3)')  # Gri ve şeffaf
+    
+    # Sankey diagram oluştur
+    fig_sankey = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="white", width=1.5),
+            label=node_list,
+            color=node_colors
+        ),
+        link=dict(
+            source=[link['source'] for link in links],
+            target=[link['target'] for link in links],
+            value=[link['value'] for link in links],
+            color=link_colors,
+            hovertemplate='%{source.label} → %{target.label}<br>Sales: %{value:.2f}M$<extra></extra>'
+        )
+    )])
+    
+    fig_sankey.update_layout(
+        title_text="Top 5 Publishers Sales Flow: Publisher → Genre → Platform",
+        font_size=10,
+        height=800
+    )
+    
+    st.plotly_chart(fig_sankey, use_container_width=True)
+
 with tabs[5]:
-    st.header("3. Chart (Ranked Bar Chart): Top 20 Best-Selling Games of All Time")
+    st.header("Line Chart: Sales Trend Over Years")
+    st.markdown("This chart shows the trend of total global/regional game sales over the years. You can change the displayed metric (Global/NA/EU/JP Sales) using the dropdown menu, and perform dragging or zooming on the chart.")
+    
+    # Dropdown menu for sales type selection
+    sales_type = st.selectbox(
+        "Select Sales Type:",
+        options=['Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales'],
+        index=0,
+        format_func=lambda x: {
+            'Global_Sales': 'Global Sales',
+            'NA_Sales': 'NA Sales (North America)',
+            'EU_Sales': 'EU Sales (Europe)',
+            'JP_Sales': 'JP Sales (Japan)'
+        }[x]
+    )
+    
+    # Yıllara göre toplam satış hesapla (filtrelenmiş veriden)
+    yearly_sales = df_filtered.groupby('Year')[sales_type].sum().reset_index()
+    yearly_sales = yearly_sales.sort_values('Year')
+    
+    # Create line chart
+    fig_line = px.line(
+        yearly_sales,
+        x='Year',
+        y=sales_type,
+        title=f'{sales_type.replace("_", " ")} Trend Over Years',
+        labels={
+            'Year': 'Year',
+            sales_type: f'{sales_type.replace("_", " ")} (Million $)'
+        },
+        markers=True
+    )
+    
+    # Interactive features: zoom, pan, drag
+    fig_line.update_layout(
+        xaxis_title="Year",
+        yaxis_title=f"{sales_type.replace('_', ' ')} (Million $)",
+        hovermode='x unified',
+        xaxis=dict(
+            rangeslider=dict(visible=True),  # Range slider at the bottom
+            type="linear"
+        ),
+        dragmode='zoom'  # Default zoom mode
+    )
+    
+    # Update hover template
+    fig_line.update_traces(
+        hovertemplate='Year: %{x}<br>Sales: %{y:.2f}M$<extra></extra>'
+    )
+    
+    st.plotly_chart(fig_line, use_container_width=True)
+
+with tabs[8]:
+    st.header("Top 20 Games (Hilmi): Best-Selling Games of All Time")
     st.markdown("Shows the top 20 games by total global sales from the filtered dataset.")
 
     # Prepared by: Hilmi
@@ -234,6 +549,10 @@ with tabs[5]:
 
     # Sort by Global_Sales and select the top 20
     df_top_20 = df_filtered.sort_values(by='Global_Sales', ascending=False).head(20)
+    
+    # Oyun isimlerini satış sırasına göre listele (en yüksekten en düşüğe)
+    # Bu sıralama Y eksenindeki sıralamayı belirleyecek
+    name_order = df_top_20['Name'].tolist()
 
     # Create the Ranked Bar Chart
     fig_bar_top = px.bar(
@@ -246,27 +565,18 @@ with tabs[5]:
         title='Top 20 Games by Global Sales (Million Dollars)',
         # Add Publisher, Platform, and Year to the tooltip (hover)
         hover_data=['Publisher', 'Platform', 'Year'],
-        labels={'Global_Sales': 'Global Sales (Million Dollars)', 'Name': 'Game Name'}
+        labels={'Global_Sales': 'Global Sales (Million Dollars)', 'Name': 'Game Name'},
+        category_orders={'Name': name_order}  # Oyun isimlerini satış sırasına göre sırala
     )
     
-    # Reverse the Y-axis order to put the best-seller at the top
-    fig_bar_top.update_layout(yaxis={'categoryorder':'total ascending'})
+    # Y-axis order: en yüksek satış en üstte (horizontal bar'da descending = en üstte en yüksek)
+    fig_bar_top.update_layout(
+        yaxis={
+            'categoryorder': 'array',
+            'categoryarray': name_order,
+            'tickmode': 'linear'  # Tüm tick'leri göster
+        },
+        height=max(600, len(df_top_20) * 30)  # Her oyun için yeterli yükseklik
+    )
 
     st.plotly_chart(fig_bar_top, use_container_width=True)
-
-
-# -----------------
-# 3 CHARTS ---- MODIFY below  -------
-# -----------------
-
-with tabs[6]:
-    st.header(" 4's Chart (e.g., Violin Plot)")
-    st.warning("this will be modified ->  E.g., An advanced version of the box plot (Violin).")
-
-with tabs[7]:
-    st.header(" 5's Chart (e.g., Sunburst)")
-    st.warning("this will be modified ->  E.g., A circular version of the treemap (Sunburst).")
-
-with tabs[8]:
-    st.header(" 6's Chart (e.g., Parallel Coordinates)")
-    st.warning("this will be modified ->  E.g., Sales profile of genres by region (Parallel Coords).")
