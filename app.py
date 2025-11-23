@@ -417,9 +417,9 @@ with tabs[3]:
         y="Global_Sales",
         color="Platform",
         category_orders={"Platform": list(platform_order)},  # Sıralı renklendirme
-        title="Platform Market Share Over Years (Stacked)",
+        title=None,  # Başlığı kaldırıyoruz, Streamlit header zaten var
         template="plotly_dark",
-        height=600  # Tek parça olduğu için aşırı yüksekliğe gerek yok
+        height=750  # Hover tooltip için daha fazla alan
     )
     
     # Fine-tuning
@@ -427,16 +427,24 @@ with tabs[3]:
         xaxis_title="Year",
         yaxis_title="Total Global Sales (Million)",
         legend_title="Platforms",
-        hovermode='x unified'  # Mouse'un X eksenindeki konumuna göre o yılın tüm platform verilerini göster
+        hovermode='x unified',  # Mouse'un X eksenindeki konumuna göre o yılın tüm platform verilerini göster
+        hoverlabel=dict(
+            bgcolor="rgba(17, 17, 17, 0.98)",  # Dark template'e uygun renk, daha opak
+            bordercolor="rgba(255, 255, 255, 0.4)",
+            font_size=11,
+            font_family="Arial",
+            align="left",
+            namelength=-1  # Platform isimlerinin tamamını göster
+        ),
+        margin=dict(t=50, l=60, r=40, b=60),  # Başlık olmadığı için üst margin'i azaltıyoruz, tooltip için alan açıyoruz
+        hoverdistance=100,  # Hover mesafesini artırıyoruz
+        spikedistance=1000  # Spike mesafesini artırıyoruz
     )
     
     # Hover'ın mouse'un grafikteki yerine göre o yılın verilerini göstermesi için trace'leri güncelle
     for trace in fig_stacked.data:
         trace.update(
-            hovertemplate='<b>%{fullData.name}</b><br>' +
-                          'Year: %{x}<br>' +
-                          'Sales: %{y:.2f}M$<br>' +
-                          '<extra></extra>',
+            hovertemplate='<b>%{fullData.name}</b><br>Year: %{x}<br>Sales: %{y:.2f}M$<extra></extra>',
             fill='tonexty',  # Stacked area için fill ayarı
             line=dict(width=0)  # Çizgi kalınlığını 0 yap, sadece alan hover'ı tetiklesin
         )
@@ -620,35 +628,33 @@ with tabs[4]:
     st.plotly_chart(fig_sankey, use_container_width=True)
 
 with tabs[5]:
-    st.header("Line Chart: Sales Trend Over Years")
-    st.markdown("This chart shows the trend of total global/regional game sales over the years. You can change the displayed metric (Global/NA/EU/JP Sales) using the dropdown menu, and perform dragging or zooming on the chart.")
+    st.header("Line Chart: Publisher Sales Trend Over Years")
+    st.markdown("This chart shows the trend of total global sales for selected publishers over the years. You can select a publisher from the dropdown menu, and perform dragging or zooming on the chart.")
     
-    # Dropdown menu for sales type selection
-    sales_type = st.selectbox(
-        "Select Sales Type:",
-        options=['Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales'],
-        index=0,
-        format_func=lambda x: {
-            'Global_Sales': 'Global Sales',
-            'NA_Sales': 'NA Sales (North America)',
-            'EU_Sales': 'EU Sales (Europe)',
-            'JP_Sales': 'JP Sales (Japan)'
-        }[x]
+    # Publisher listesini al (filtrelenmiş veriden, en çok satış yapanlardan başlayarak)
+    publisher_sales = df_filtered.groupby('Publisher')['Global_Sales'].sum().sort_values(ascending=False)
+    all_publishers = publisher_sales.index.tolist()
+    
+    # Dropdown menu for publisher selection
+    selected_publisher = st.selectbox(
+        "Select Publisher:",
+        options=all_publishers,
+        index=0 if all_publishers else None
     )
     
-    # Yıllara göre toplam satış hesapla (filtrelenmiş veriden)
-    yearly_sales = df_filtered.groupby('Year')[sales_type].sum().reset_index()
-    yearly_sales = yearly_sales.sort_values('Year')
+    # Seçilen Publisher'ın yıllara göre toplam satışlarını hesapla (filtrelenmiş veriden)
+    publisher_yearly_sales = df_filtered[df_filtered['Publisher'] == selected_publisher].groupby('Year')['Global_Sales'].sum().reset_index()
+    publisher_yearly_sales = publisher_yearly_sales.sort_values('Year')
     
     # Create line chart
     fig_line = px.line(
-        yearly_sales,
+        publisher_yearly_sales,
         x='Year',
-        y=sales_type,
-        title=f'{sales_type.replace("_", " ")} Trend Over Years',
+        y='Global_Sales',
+        title=f'{selected_publisher} - Total Sales Trend Over Years',
         labels={
             'Year': 'Year',
-            sales_type: f'{sales_type.replace("_", " ")} (Million $)'
+            'Global_Sales': 'Total Sales (Million $)'
         },
         markers=True
     )
@@ -656,7 +662,7 @@ with tabs[5]:
     # Interactive features: zoom, pan, drag
     fig_line.update_layout(
         xaxis_title="Year",
-        yaxis_title=f"{sales_type.replace('_', ' ')} (Million $)",
+        yaxis_title="Total Sales (Million $)",
         hovermode='x unified',
         xaxis=dict(
             rangeslider=dict(visible=True),  # Range slider at the bottom
@@ -667,7 +673,7 @@ with tabs[5]:
     
     # Update hover template
     fig_line.update_traces(
-        hovertemplate='Year: %{x}<br>Sales: %{y:.2f}M$<extra></extra>'
+        hovertemplate='Year: %{x}<br>Total Sales: %{y:.2f}M$<extra></extra>'
     )
     
     st.plotly_chart(fig_line, use_container_width=True)
