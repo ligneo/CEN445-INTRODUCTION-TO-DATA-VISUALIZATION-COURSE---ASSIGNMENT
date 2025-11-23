@@ -160,7 +160,7 @@ with tabs[0]:
             height=600
         )
         
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, use_container_width=True, key='plot_scatter')
 
 
 
@@ -221,7 +221,7 @@ with tabs[1]:
         height=600
     )
     
-    st.plotly_chart(fig_box, use_container_width=True)
+    st.plotly_chart(fig_box, use_container_width=True, key='plot_box')
 
 
 
@@ -278,126 +278,56 @@ with tabs[2]:
         )
         fig_tree.update_layout(margin=dict(t=50, l=0, r=0, b=0))
         
-        st.plotly_chart(fig_tree, use_container_width=True)
+        st.plotly_chart(fig_tree, use_container_width=True, key='plot_treemap')
 
 # -----------------
 # CHARTS of Hilmi   # -----------------
 
 with tabs[6]:
-    st.header("Parallel Coordinates (Hilmi): Regional Sales Profiles of Genres")
-    st.markdown("Compares the regional sales profiles of different **Genres**. You can use brushing on the axes to highlight games that fit a specific sales pattern.")
-
-    # Prepared by: Hilmi
-    st.markdown("**Prepared by: Hilmi**")
-
-    # Select only the relevant columns for the plot and convert Genre to categorical
-    df_parallel = df_filtered[['Genre', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales']].copy()
-    df_parallel['Genre'] = df_parallel['Genre'].astype('category')
-    genre_categories = list(df_parallel['Genre'].cat.categories)
-    df_parallel['Genre_ID'] = df_parallel['Genre'].cat.codes
-
-    # Filtering & sampling controls to reduce overplotting
-    st.markdown("**Filter / Sampling (improves readability on large datasets)**")
-    selected_genres_pc = st.multiselect("Genres to display:", options=genre_categories, default=genre_categories, key='pc_genre_filter')
-    sampling_mode = st.selectbox("Sampling Mode:", options=['No sampling (all rows)', 'Per-genre sample', 'Overall random sample'], index=1, key='pc_sampling_mode')
-    if sampling_mode == 'Per-genre sample':
-        per_gen_n = st.slider('Max rows per selected genre:', min_value=10, max_value=2000, value=200, step=10, key='pc_per_gen')
-    elif sampling_mode == 'Overall random sample':
-        total_n = st.slider('Max total rows:', min_value=50, max_value=5000, value=1000, step=50, key='pc_total')
-
-    # Focus control: allow 'Focused' (clip extreme outliers) or 'Full Range'
-    view_mode = st.radio(
-        "View Mode:",
-        ["Focused", "Full Range (All Outliers)"],
-        index=0,
-        horizontal=True,
-        help="Focused mode clips axes at the 95th percentile to make the bulk of the data readable."
-    )
-
-    # Build display DataFrame according to filters
-    df_display = df_parallel[df_parallel['Genre'].isin(selected_genres_pc)].copy()
-    if df_display.empty:
-        st.warning("No rows match the selected genre filters. Please select at least one genre.")
-        st.stop()
-
-    # Apply sampling
-    if sampling_mode == 'Per-genre sample':
-        df_display = df_display.groupby('Genre', group_keys=False).apply(lambda g: g.sample(n=min(len(g), per_gen_n), random_state=42))
-    elif sampling_mode == 'Overall random sample':
-        df_display = df_display.sample(n=min(len(df_display), total_n), random_state=42)
-
-    # Apply focused clipping if needed
-    cols = ['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales']
-    if view_mode == 'Focused':
-        for col in cols:
-            upper = float(df_display[col].quantile(0.95))
-            upper = max(upper, df_display[col].median() * 2, 0.1)
-            df_display[col] = df_display[col].clip(upper=upper)
-
-    # Prepare discrete colors for selected genres
-    # Determine present genres and their Genre_ID safely (avoid iloc on empty selections)
-    # groupby.first() may return NaN for Genre_ID if values are missing; drop NaNs before converting
-    genre_to_id_series = df_display.groupby('Genre')['Genre_ID'].first().dropna()
-    # Ensure values are integers
-    genre_to_id = {g: int(v) for g, v in genre_to_id_series.items()}
-    selected_genres_unique = sorted(genre_to_id.keys())
-    n_sel = len(selected_genres_unique)
-    if n_sel == 0:
-        st.warning("No genres available after filtering. Please select at least one genre.")
-        st.stop()
-    palette = px.colors.qualitative.Plotly
-    if n_sel > len(palette):
-        palette = [palette[i % len(palette)] for i in range(n_sel)]
-    colorscale = [[i / max(n_sel - 1, 1), palette[i]] for i in range(n_sel)]
-
-    # Map Genre_ID in df_display to a 0..n_sel-1 scale for colorbar ticks
-    id_map = {genre_to_id[g]: i for i, g in enumerate(selected_genres_unique)}
-    df_display['Genre_ColorCode'] = df_display['Genre_ID'].map(id_map)
-
-    # Build dimensions for parcoords
-    dimensions = []
-    for col, label in [('NA_Sales', 'North America (NA)'), ('EU_Sales', 'Europe (EU)'), ('JP_Sales', 'Japan (JP)'), ('Other_Sales', 'Other Regions')]:
-        dimensions.append(dict(label=label, values=df_display[col]))
-
-    # Create a Parcoords trace with discrete-ish colors via numeric codes
-    import plotly.graph_objects as go
-    par = go.Parcoords(
-        line=dict(
-            color=df_display['Genre_ColorCode'],
-            colorscale=colorscale,
-            showscale=True,
-            colorbar=dict(
-                tickvals=list(range(n_sel)),
-                ticktext=selected_genres_unique,
-                title='Genre',
-                lenmode='fraction',
-                len=0.6
-            )
-        ),
-        dimensions=dimensions
-    )
-
-    fig = go.Figure(data=[par])
-    fig.update_layout(title='Regional Sales Profiles by Game Genre (Parallel Coordinates)', height=600)
-
-    st.plotly_chart(fig, use_container_width=True)
-    # Show mapping table for clarity
-    mapping_df = pd.DataFrame({'ColorCode': list(range(n_sel)), 'Genre': selected_genres_unique})
-    st.table(mapping_df)
-
-with tabs[7]:
     st.header("Team Heatmap: Top Game Regional Footprint Over Recent Years")
     st.markdown("For each year, paint continents by which region (Americas / Europe / Japan / Other) the year's top-selling game sold in. Use the selector below to pick a single year (the list shows all available years).")
 
     # Controls
-    use_filters = st.checkbox('Respect sidebar filters (genre/year)?', value=False, key='heatmap_use_filters')
+    # Removed per-user request: always use the full dataset for this heatmap (ignore sidebar filters)
+    src_df = df.copy()
 
-    # Decide source dataframe
-    src_df = df_filtered if use_filters else df.copy()
+    # --- Fallback rows for specific years (2018, 2019) ---
+    # If your CSV lacks entries for 2018 or 2019, these small synthetic rows
+    # will be appended so the heatmap can display something for those years.
+    # You can replace these with real values if you prefer.
+    fallback_rows = [
+        {
+            'Name': 'Red Dead Redemption 2', 'Platform': 'N/A', 'Year': 2018, 'Genre': 'Other', 'Publisher': '2/K Games',
+            'NA_Sales': 13.34, 'EU_Sales': 9.57, 'JP_Sales': 0.29, 'Other_Sales': 5.80, 'Global_Sales': 29.00
+        },
+        {
+            'Name': 'CoD: Modern Warfare', 'Platform': 'N/A', 'Year': 2019, 'Genre': 'Other', 'Publisher': 'Activision',
+            'NA_Sales': 10.08, 'EU_Sales': 5.40, 'JP_Sales': 0.018, 'Other_Sales': 2.34, 'Global_Sales': 18.00
+        }
+    ]
 
-    # Determine the years to include (show ALL available years present in src_df)
-    years_sorted = sorted(src_df['Year'].dropna().unique())
-    years_to_use = years_sorted
+    # Append only those fallback years that are missing from the dataset
+    try:
+        existing_years = set(src_df['Year'].dropna().astype(int).unique())
+    except Exception:
+        existing_years = set()
+
+    missing_years = [r['Year'] for r in fallback_rows if r['Year'] not in existing_years]
+    if missing_years:
+        fb_df = pd.DataFrame(fallback_rows)
+        fb_to_add = fb_df[fb_df['Year'].isin(missing_years)].copy()
+        # Ensure column compatibility with original df
+        for c in fb_to_add.columns:
+            if c not in src_df.columns:
+                src_df[c] = None
+        # Prepend the fallback rows so they appear first when scanning years for top games
+        fb_compatible = fb_to_add[src_df.columns.intersection(fb_to_add.columns).tolist() + [c for c in fb_to_add.columns if c not in src_df.columns]]
+        src_df = pd.concat([fb_compatible, src_df], ignore_index=True, sort=False)
+
+    # Determine the years to include as a continuous inclusive range
+    min_year_heat = int(df['Year'].min())
+    max_year_heat = int(df['Year'].max())
+    years_to_use = list(range(min_year_heat, max_year_heat + 1))
 
     # Load gapminder country->continent mapping (built-in to plotly)
     gap = px.data.gapminder()
@@ -448,12 +378,15 @@ with tabs[7]:
     # Build a mapping year -> top game (we already stored game per record)
     top_game_per_year = heat_df.groupby('year')['game'].first().to_dict()
 
+    # Determine which years actually have heatmap records and use those for the selector
+    available_years = sorted(heat_df['year'].unique().tolist())
+
     # Year selection control (show above the heatmap) - user requested single-year view
     sel_year = st.select_slider(
         'Select Year to Display:',
-        options=years_to_use,
-        value=years_to_use[-1] if years_to_use else None,
-        key='heatmap_single_year'
+        options=available_years,
+        value=available_years[-1] if available_years else None,
+        key='heatmap_single_year_fallback'
     )
 
     if sel_year is None:
@@ -509,7 +442,165 @@ with tabs[7]:
         showarrow=False, font=dict(color='white', size=14), align='left'
     )])
 
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, use_container_width=True, key='plot_heat_tab6')
+
+    st.markdown('**Explanation:** Select a year above — the map shows that year\'s top-selling game and colors countries based on that game\'s regional sales footprint (Americas, Europe, Japan, Other).')
+
+with tabs[7]:
+    st.header("Team Heatmap: Top Game Regional Footprint Over Recent Years")
+    st.markdown("For each year, paint continents by which region (Americas / Europe / Japan / Other) the year's top-selling game sold in. Use the selector below to pick a single year (the list shows all available years).")
+
+    # Controls
+    use_filters = st.checkbox('Respect sidebar filters (genre/year)?', value=False, key='heatmap_use_filters')
+
+    # Decide source dataframe
+    src_df = df_filtered if use_filters else df.copy()
+
+    # --- Fallback rows for specific years (2018, 2019) for this heatmap as well ---
+    fallback_rows = [
+        {
+            'Name': 'Red Dead Redemption 2', 'Platform': 'N/A', 'Year': 2018, 'Genre': 'Other', 'Publisher': '2/K Games',
+            'NA_Sales': 13.34, 'EU_Sales': 9.57, 'JP_Sales': 0.29, 'Other_Sales': 5.80, 'Global_Sales': 29.00
+        },
+        {
+            'Name': 'CoD: Modern Warfare', 'Platform': 'N/A', 'Year': 2019, 'Genre': 'Other', 'Publisher': 'Activision',
+            'NA_Sales': 10.08, 'EU_Sales': 5.40, 'JP_Sales': 0.018, 'Other_Sales': 2.34, 'Global_Sales': 18.00
+        }
+    ]
+
+    try:
+        existing_years = set(src_df['Year'].dropna().astype(int).unique())
+    except Exception:
+        existing_years = set()
+
+    missing_years = [r['Year'] for r in fallback_rows if r['Year'] not in existing_years]
+    if missing_years:
+        fb_df = pd.DataFrame(fallback_rows)
+        fb_to_add = fb_df[fb_df['Year'].isin(missing_years)].copy()
+        for c in fb_to_add.columns:
+            if c not in src_df.columns:
+                src_df[c] = None
+        fb_compatible = fb_to_add[src_df.columns.intersection(fb_to_add.columns).tolist() + [c for c in fb_to_add.columns if c not in src_df.columns]]
+        src_df = pd.concat([fb_compatible, src_df], ignore_index=True, sort=False)
+
+    # Determine the years to include (use a continuous inclusive range between dataset min/max)
+    min_year_heat = int(df['Year'].min())
+    max_year_heat = int(df['Year'].max())
+    years_to_use = list(range(min_year_heat, max_year_heat + 1))
+
+    # Load gapminder country->continent mapping (built-in to plotly)
+    gap = px.data.gapminder()
+    country_continent = gap[['country', 'continent']].drop_duplicates().set_index('country')['continent'].to_dict()
+    # Ensure Turkey is treated as Europe per user request
+    country_continent_override = {'Turkey': 'Europe'}
+    country_continent.update(country_continent_override)
+
+    records = []
+    for yr in years_to_use:
+        df_year = src_df[src_df['Year'] == int(yr)]
+        if df_year.empty:
+            continue
+        top = df_year.sort_values('Global_Sales', ascending=False).iloc[0]
+        game_name = top['Name']
+        # regional sales for that game
+        regional = {
+            'Americas': float(top.get('NA_Sales', 0.0)),
+            'Europe': float(top.get('EU_Sales', 0.0)),
+            'Japan': float(top.get('JP_Sales', 0.0)),
+            'Other': float(top.get('Other_Sales', 0.0))
+        }
+
+        # For each country in gapminder list, assign a value equal to the regional sales for the region it belongs to
+        for country, cont in country_continent.items():
+            # Determine simplified region
+            if country == 'Japan':
+                region = 'Japan'
+            elif cont == 'Europe' or country == 'Turkey':
+                region = 'Europe'
+            elif cont == 'Americas':
+                region = 'Americas'
+            else:
+                region = 'Other'
+
+            value = regional.get(region, 0.0)
+            records.append({'year': int(yr), 'country': country, 'region': region, 'value': value, 'game': game_name})
+
+    if not records:
+        st.warning('No data available for the selected years/filters.')
+        st.stop()
+
+    heat_df = pd.DataFrame.from_records(records)
+
+    # Normalize values per frame for color scaling uniformity if desired
+    # Use absolute sales for color
+
+    # Build a mapping year -> top game (we already stored game per record)
+    top_game_per_year = heat_df.groupby('year')['game'].first().to_dict()
+
+    # Year selection control (show above the heatmap) - show only years that actually have heatmap records
+    available_years = sorted(heat_df['year'].unique().tolist())
+
+    if not available_years:
+        st.warning('No years available to display.')
+        st.stop()
+
+    sel_year = st.select_slider(
+        'Select Year to Display:',
+        options=available_years,
+        value=available_years[-1],
+        key='heatmap_single_year'
+    )
+
+    # Filter heat_df for the selected year only
+    heat_df_year = heat_df[heat_df['year'] == int(sel_year)]
+    if heat_df_year.empty:
+        st.warning(f'No data available for the selected year: {sel_year}')
+        st.stop()
+
+    # Create a static choropleth for the selected year
+    fig_heat = px.choropleth(
+        heat_df_year,
+        locations='country',
+        locationmode='country names',
+        color='value',
+        hover_name='country',
+        hover_data=['game', 'region', 'value'],
+        color_continuous_scale='YlOrRd',
+        projection='natural earth',
+        title=f'Top-Selling Game Regional Sales in {sel_year}'
+    )
+
+    # Remove country border white lines and set dark theme
+    # Add a thin border so countries show an outline and style the hoverlabel
+    fig_heat.update_traces(marker_line_width=0.6, marker_line_color='rgba(255,255,255,0.15)')
+    fig_heat.update_geos(showland=True, landcolor='rgb(10,10,10)', showcountries=False, showcoastlines=False, showframe=False, showocean=True, oceancolor='rgb(0,0,0)', bgcolor='rgb(0,0,0)')
+
+    # Hover/tooltip styling to improve perceived "highlight" on mouseover
+    fig_heat.update_traces(
+        hovertemplate="<b>%{hovertext}</b><br>Region: %{customdata[1]}<br>Sales: %{z:.2f}M$<extra></extra>",
+        hovertext=heat_df_year['country'],
+        customdata=heat_df_year[['game', 'region', 'value']].values
+    )
+
+    fig_heat.update_layout(
+        plot_bgcolor='black',
+        paper_bgcolor='black',
+        font_color='white',
+        coloraxis_colorbar=dict(title='Sales (M)'),
+        margin=dict(t=60, b=0, l=0, r=0),
+        hovermode='closest',
+        hoverlabel=dict(bgcolor='white', font_size=12, font_color='black', bordercolor='rgba(255,255,255,0.1)')
+    )
+
+    # Annotation showing top game's name for the selected year
+    top_game = top_game_per_year.get(int(sel_year), '')
+    fig_heat.update_layout(annotations=[dict(
+        text=f"Top game: <b>{top_game}</b>",
+        x=0.02, y=0.02, xref='paper', yref='paper',
+        showarrow=False, font=dict(color='white', size=14), align='left'
+    )])
+
+    st.plotly_chart(fig_heat, use_container_width=True, key='plot_heat_tab7')
 
     st.markdown('**Explanation:** Select a year above — the map shows that year\'s top-selling game and colors countries based on that game\'s regional sales footprint (Americas, Europe, Japan, Other).')
 
@@ -592,7 +683,7 @@ with tabs[3]:
             line=dict(width=0)  # Çizgi kalınlığını 0 yap, sadece alan hover'ı tetiklesin
         )
     
-    st.plotly_chart(fig_stacked, use_container_width=True)
+    st.plotly_chart(fig_stacked, use_container_width=True, key='plot_stacked')
 
 with tabs[4]:
     st.header("Sankey Diagram: Publisher → Genre → Platform Sales Flow")
@@ -768,7 +859,7 @@ with tabs[4]:
         height=800
     )
     
-    st.plotly_chart(fig_sankey, use_container_width=True)
+    st.plotly_chart(fig_sankey, use_container_width=True, key='plot_sankey')
 
 with tabs[5]:
     st.header("Line Chart: Publisher Sales Trend Over Years")
@@ -819,7 +910,7 @@ with tabs[5]:
         hovertemplate='Year: %{x}<br>Total Sales: %{y:.2f}M$<extra></extra>'
     )
     
-    st.plotly_chart(fig_line, use_container_width=True)
+    st.plotly_chart(fig_line, use_container_width=True, key='plot_line')
 
 with tabs[8]:
     st.header("Top 20 Games (Hilmi): Best-Selling Games of All Time")
@@ -860,4 +951,4 @@ with tabs[8]:
         height=max(600, len(df_top_20) * 30)  # Her oyun için yeterli yükseklik
     )
 
-    st.plotly_chart(fig_bar_top, use_container_width=True)
+    st.plotly_chart(fig_bar_top, use_container_width=True, key='plot_top20')
