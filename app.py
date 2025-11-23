@@ -136,7 +136,7 @@ with tabs[0]:
     with c2:
         # Create Scatter Plot
         fig_scatter = px.scatter(
-            df_filtered,
+            df_filtered,  
             x='NA_Sales',
             y='EU_Sales',
             color='Genre',              # Color differentiation by Genre
@@ -146,26 +146,139 @@ with tabs[0]:
             title="NA Sales vs. EU Sales (with Marginal Distributions)",
             marginal_x="histogram",     # Top margin: Histogram
             marginal_y="histogram",     # Right margin: Histogram
-            trendline=("ols" if show_trend else None), # Optional trendline
+            trendline="ols" if show_trend else None, # Optional trendline
             log_x=log_scale,            # Logarithmic axis settings
             log_y=log_scale,
-            template="plotly_white",
-            opacity=0.7
+            template="plotly_white",    # Clean background
+            opacity=0.7                 # Transparency for overlapping points
         )
-
+        
         # Styling adjustments
         fig_scatter.update_layout(
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=50, b=20),
             height=600
         )
-
+        
         st.plotly_chart(fig_scatter, use_container_width=True)
 
 
 
-#  --------------------
 
+
+
+
+# Chart 2: Box Plot 
+with tabs[1]:
+    st.header("Chart 2: Sales Distribution Analytics")
+    st.markdown("Compare the sales distributions. By default, the view is **focused** on the main cluster of games to make the boxes visible.")
+
+    # layout focused (default), all range
+    c1, c2 = st.columns([2, 2])
+    
+    with c1:
+        y_axis_option = st.radio(
+            "Select Sales Metric:",
+            ['Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales'],
+            horizontal=True,
+            format_func=lambda x: x.replace('_', ' ')
+        )
+    
+    with c2:
+        view_mode = st.radio(
+            "Y-Axis Scale Mode:",
+            ["Focused", "Full Range (All Outliers)"],
+            index=0,  
+            horizontal=True,
+            help="Focused mode clips extreme outliers to show the box distribution clearly."
+        )
+    
+    # Custom Color Palette
+    color_discrete_map = px.colors.qualitative.Bold
+
+    fig_box = px.box(
+        df_filtered, 
+        x='Genre',
+        y=y_axis_option,
+        color='Genre',
+        points="outliers", 
+        notched=True,       
+        title=f"{y_axis_option.replace('_', ' ')} Distribution by Genre",
+        color_discrete_sequence=color_discrete_map
+    )
+    
+    # Y-Axis Scale
+    if view_mode == "Focused":  # 0-5 
+        #fig_box.update_yaxes(range=[0, 25])
+        fig_box.update_yaxes(range=[0, 2])
+    else:
+        fig_box.update_yaxes(autorange=True)
+
+    fig_box.update_layout(
+        xaxis_title="Game Genre",
+        yaxis_title=f"{y_axis_option} (Million $)",
+        legend_title_text="Genre List",
+        height=600
+    )
+    
+    st.plotly_chart(fig_box, use_container_width=True)
+
+
+
+
+## Chart 3: Treemap 
+# (Dynamic Hierarchy)
+with tabs[2]:
+    st.header("Chart 3: Market Hierarchy Explorer (Dynamic Treemap)")
+    st.markdown("Who dominates the market? Explore the data from different angles by dynamically changing the hierarchy order.")
+
+    col_tree1, col_tree2 = st.columns([1, 3])
+
+    with col_tree1:
+        st.info("💡 Tip: By changing the hierarchy order, you can answer questions like 'Which Publisher is strong in which Genre?' or 'Which Publisher dominates which Platform?'.")
+        
+        #dynamic hierarchy selection, interaction
+        default_path = ['Publisher', 'Genre', 'Platform']
+        path_options = ['Publisher', 'Genre', 'Platform', 'Year']
+        
+        selected_path = st.multiselect(
+            "Select Hierarchy Order (Top -> Down):",
+            options=path_options,
+            default=default_path
+        )
+        
+        #if empty
+        if not selected_path:
+            selected_path = default_path
+
+        #coloring metric, interaction
+        color_metric = st.selectbox(
+            "Color Boxes By:",
+            options=['Global_Sales', 'Year'],
+            format_func=lambda x: "Total Sales (Heatmap)" if x == 'Global_Sales' else "Release Year (New vs Old)"
+        )
+
+    with col_tree2:
+        # Treemaps are often more meaningful with the full dataset context, 
+        # but here we use df_filtered to respect user's global filters.
+        
+        fig_tree = px.treemap(
+            df_filtered,
+            path=[px.Constant("All Games")] + selected_path,
+            values='Global_Sales',
+            color=color_metric, 
+            # Red-Blue for Years, Viridis (Green-Purple) for Sales magnitude
+            color_continuous_scale='RdBu_r' if color_metric == 'Year' else 'Viridis', 
+            title=f"Market Hierarchy by {' > '.join(selected_path)}"
+        )
+        
+        fig_tree.update_traces(
+            root_color="lightgrey",
+            hovertemplate='<b>%{label}</b><br>Sales: %{value:.2f}M$<br>%{parent}'
+        )
+        fig_tree.update_layout(margin=dict(t=50, l=0, r=0, b=0))
+        
+        st.plotly_chart(fig_tree, use_container_width=True)
 
 # -----------------
 # CHARTS of Hilmi   # -----------------
