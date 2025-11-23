@@ -109,10 +109,6 @@ with tabs[0]:
     # colums for interactions
     c1, c2 = st.columns([1, 3])
 
-
-
-
-
     with c1:
         st.markdown("### ⚙️ Settings")
         # logarithmic scale
@@ -136,8 +132,6 @@ with tabs[0]:
             value=False, 
             help="Adds a linear regression line to visualize the general correlation trend."
         )
-
-
 
     with c2:
         # Create Scatter Plot
@@ -175,18 +169,14 @@ with tabs[0]:
 
 
 # Chart 2: Box Plot 
-### bug : genre selection? 
-### outliners scatter the image  \ log scale or fixed scale selection
-# Chart 2: Box Plot (Fixed: Focused View by Default)
 with tabs[1]:
     st.header("Chart 2: Sales Distribution Analytics")
     st.markdown("Compare the sales distributions. By default, the view is **focused** on the main cluster of games to make the boxes visible.")
 
-    # Layout: Sol tarafta Satış Tipi, Sağ tarafta Görünüm Modu (Zoom)
+    # layout focused (default), all range
     c1, c2 = st.columns([2, 2])
     
     with c1:
-        # Interaction: Select Sales Metric
         y_axis_option = st.radio(
             "Select Sales Metric:",
             ['Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales'],
@@ -195,12 +185,10 @@ with tabs[1]:
         )
     
     with c2:
-        # Interaction: View Mode (Zoom vs Full)
-        # Senin istediğin "Default olarak zoomlu gelsin" mantığı burada
         view_mode = st.radio(
             "Y-Axis Scale Mode:",
             ["Focused", "Full Range (All Outliers)"],
-            index=0,  # Index 0 seçili gelir (Focused) -> Kutular net gözükür
+            index=0,  
             horizontal=True,
             help="Focused mode clips extreme outliers to show the box distribution clearly."
         )
@@ -219,12 +207,11 @@ with tabs[1]:
         color_discrete_sequence=color_discrete_map
     )
     
-    # Eksen Ayarlaması (Zoom Mantığı)
+    # Y-Axis Scale
     if view_mode == "Focused":  # 0-5 
         #fig_box.update_yaxes(range=[0, 25])
         fig_box.update_yaxes(range=[0, 2])
     else:
-        # Otomatik bırakıyoruz, en yüksek değere (82M) kadar uzuyor.
         fig_box.update_yaxes(autorange=True)
 
     fig_box.update_layout(
