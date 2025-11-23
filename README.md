@@ -30,17 +30,19 @@ This project is an interactive data visualization dashboard developed using **Py
 
 - To run this project locally, follow these steps:
 
+---
+
 ```bash
     git clone https://github.com/ligneo/CEN445-INTRODUCTION-TO-DATA-VISUALIZATION-COURSE---ASSIGNMENT.git
-    ```
+```
 
 ```bash
     pip install -r requirements.txt
-    ```
+```
 
 ```bash
     streamlit run app.py
-    ```
+```
 
 ## Project Structure & Contributions
 
