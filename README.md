@@ -37,11 +37,11 @@ The dashboard features 9 distinct visualizations created by the team members:
 * **Dynamic Treemap:** Hierarchical view of the market share (Publisher -> Genre -> Platform).
 
 ### **İlhan**
-* **Stacked Area Chart:** Platform popularity trends over the years.
-* **Sankey Diagram:** Flow of sales from Top 5 Publishers to Genres and Platforms.
-* **Line Chart:** Global and regional sales trends over time with interactive zooming.
+* **Stacked Area Chart:** Illustrated the sales evolution and market lifecycles of the Top 12 platforms over the years.
+* **Sankey Diagram:** Visualized the multi-stage sales distribution from the Top 5 Publishers to specific Genres and Platforms.
+* **Line Chart:** Tracked the annual global sales performance of specific publishers with interactive zooming features.
 
 ### **Hilmi**
-* **Parallel Coordinates:** Comparing regional sales profiles across different genres.
-* **Stacked Area Chart (Market Share):** Evolution of Genre market shares (percentage) over the years.
-* **Top 20 Games:** A ranked horizontal bar chart of the best-selling games of all time.
+* **Parallel Coordinates:** Compared regional sales profiles (NA, EU, JP, Other) across different game genres.
+* **Interactive Heatmap (Choropleth):** A geographical visualization showing the regional footprint of the top-selling game for each year. It colors countries based on which region (Americas, Europe, Japan, Other) the year's hit game sold best in, highlighting global shifts in market dominance.
+* **Bar Char:** Ranked the Top 20 best-selling games of all time.
