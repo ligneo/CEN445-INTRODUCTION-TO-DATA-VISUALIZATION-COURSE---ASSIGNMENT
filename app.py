@@ -177,42 +177,64 @@ with tabs[0]:
 # Chart 2: Box Plot 
 ### bug : genre selection? 
 ### outliners scatter the image  \ log scale or fixed scale selection
+# Chart 2: Box Plot (Fixed: Focused View by Default)
 with tabs[1]:
     st.header("Chart 2: Sales Distribution Analytics")
-    st.markdown("Compare sales distributions. **Click on the legend items on the right** to filter specific genres out.")
+    st.markdown("Compare the sales distributions. By default, the view is **focused** on the main cluster of games to make the boxes visible.")
 
-    #  select sales metric
-    y_axis_option = st.radio(
-        "Select Sales Metric to Analyze:",
-        ['Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales'],
-        horizontal=True,
-        format_func=lambda x: x.replace('_', ' ')
-    )
+    # Layout: Sol tarafta Satış Tipi, Sağ tarafta Görünüm Modu (Zoom)
+    c1, c2 = st.columns([2, 2])
     
-    # custom color pallete
+    with c1:
+        # Interaction: Select Sales Metric
+        y_axis_option = st.radio(
+            "Select Sales Metric:",
+            ['Global_Sales', 'NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales'],
+            horizontal=True,
+            format_func=lambda x: x.replace('_', ' ')
+        )
+    
+    with c2:
+        # Interaction: View Mode (Zoom vs Full)
+        # Senin istediğin "Default olarak zoomlu gelsin" mantığı burada
+        view_mode = st.radio(
+            "Y-Axis Scale Mode:",
+            ["Focused", "Full Range (All Outliers)"],
+            index=0,  # Index 0 seçili gelir (Focused) -> Kutular net gözükür
+            horizontal=True,
+            help="Focused mode clips extreme outliers to show the box distribution clearly."
+        )
+    
+    # Custom Color Palette
     color_discrete_map = px.colors.qualitative.Bold
 
     fig_box = px.box(
         df_filtered, 
         x='Genre',
         y=y_axis_option,
-        color='Genre',      # colors according to genre
-        points="outliers",  # outliners as dot
+        color='Genre',
+        points="outliers", 
         notched=True,       
         title=f"{y_axis_option.replace('_', ' ')} Distribution by Genre",
         color_discrete_sequence=color_discrete_map
     )
     
+    # Eksen Ayarlaması (Zoom Mantığı)
+    if view_mode == "Focused":  # 0-5 
+        #fig_box.update_yaxes(range=[0, 25])
+        fig_box.update_yaxes(range=[0, 2])
+    else:
+        # Otomatik bırakıyoruz, en yüksek değere (82M) kadar uzuyor.
+        fig_box.update_yaxes(autorange=True)
+
     fig_box.update_layout(
         xaxis_title="Game Genre",
         yaxis_title=f"{y_axis_option} (Million $)",
-        # showlegend=False
         legend_title_text="Genre List",
         height=600
     )
     
     st.plotly_chart(fig_box, use_container_width=True)
-
 
 
 
