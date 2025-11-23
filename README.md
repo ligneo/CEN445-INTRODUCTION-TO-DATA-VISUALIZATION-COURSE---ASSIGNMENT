@@ -49,8 +49,8 @@ This project is an interactive data visualization dashboard developed using **Py
 The dashboard features 9 distinct visualizations created by the team members:
 
 ### Cenk
-* **Interactive Scatter Plot:** Analysis of the correlation between NA and EU sales with marginal distribution histograms and trendlines.
-* **Box Plot (Deep Zoom):** Distribution of sales across genres, focusing on the median values with a zoom feature.
+* **Scatter Plot:** Analysis of the correlation between NA and EU sales with marginal distribution histograms and trendlines.
+* **Box Plot:** Distribution of sales across genres, focusing on the median values with a zoom feature.
 * **Dynamic Treemap:** Hierarchical view of the market share (Publisher -> Genre -> Platform).
 
 ### **İlhan**
