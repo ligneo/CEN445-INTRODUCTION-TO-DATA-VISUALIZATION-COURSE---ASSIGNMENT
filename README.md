@@ -1,20 +1,3 @@
-- streamlit
-- pandas
-- https://plotly.com/python/plotly-express/
-
-# Requirements
-pip install statsmodels, streamlit, pandas, plotly
-
-
-# How to run 
-
-```
-streamlit run app.py
-```
-
-
----
-
 # Video Game Sales Visualization Dashboard
 
 This project is an interactive data visualization dashboard developed using **Python** and **Streamlit**. It analyzes the `vgsales.csv` dataset to provide insights into global video game sales, trends across genres, publisher performance, and regional market differences.
