@@ -284,167 +284,54 @@ with tabs[2]:
 # CHARTS of Hilmi   # -----------------
 
 with tabs[6]:
-    st.header("Team Heatmap: Top Game Regional Footprint Over Recent Years")
-    st.markdown("For each year, paint continents by which region (Americas / Europe / Japan / Other) the year's top-selling game sold in. Use the selector below to pick a single year (the list shows all available years).")
+    st.header("Parallel Coordinates (Hilmi): Regional Sales Profile by Game")
+    st.markdown("Interactively explore how games compare across regional sales dimensions. Hovering on lines isn't natively supported for labels in Parcoords, so a sample table is provided below for cross-reference.")
 
-    # Controls
-    # Removed per-user request: always use the full dataset for this heatmap (ignore sidebar filters)
-    src_df = df.copy()
+    # Prepare parallel coordinates dataframe
+    numeric_cols = ['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales', 'Global_Sales']
+    needed_cols = ['Name', 'Genre'] + numeric_cols
+    df_par = df_filtered.copy()
+    df_par = df_par.dropna(subset=numeric_cols)
+    df_par = df_par[needed_cols].copy()
 
-    # --- Fallback rows for specific years (2018, 2019) ---
-    # If your CSV lacks entries for 2018 or 2019, these small synthetic rows
-    # will be appended so the heatmap can display something for those years.
-    # You can replace these with real values if you prefer.
-    fallback_rows = [
-        {
-            'Name': 'Red Dead Redemption 2', 'Platform': 'N/A', 'Year': 2018, 'Genre': 'Other', 'Publisher': '2/K Games',
-            'NA_Sales': 13.34, 'EU_Sales': 9.57, 'JP_Sales': 0.29, 'Other_Sales': 5.80, 'Global_Sales': 29.00
-        },
-        {
-            'Name': 'CoD: Modern Warfare', 'Platform': 'N/A', 'Year': 2019, 'Genre': 'Other', 'Publisher': 'Activision',
-            'NA_Sales': 10.08, 'EU_Sales': 5.40, 'JP_Sales': 0.018, 'Other_Sales': 2.34, 'Global_Sales': 18.00
-        }
-    ]
+    # Keep a reasonable number of rows for plotting performance
+    df_display = df_par.sort_values('Global_Sales', ascending=False).head(500).reset_index(drop=True)
 
-    # Append only those fallback years that are missing from the dataset
-    try:
-        existing_years = set(src_df['Year'].dropna().astype(int).unique())
-    except Exception:
-        existing_years = set()
+    # Encode Genre as categorical numeric for coloring and provide tick labels
+    genres = df_display['Genre'].astype(str).unique().tolist()
+    genre_to_id = {g: i for i, g in enumerate(genres)}
+    genre_ids = df_display['Genre'].map(genre_to_id).tolist()
 
-    missing_years = [r['Year'] for r in fallback_rows if r['Year'] not in existing_years]
-    if missing_years:
-        fb_df = pd.DataFrame(fallback_rows)
-        fb_to_add = fb_df[fb_df['Year'].isin(missing_years)].copy()
-        # Ensure column compatibility with original df
-        for c in fb_to_add.columns:
-            if c not in src_df.columns:
-                src_df[c] = None
-        # Prepend the fallback rows so they appear first when scanning years for top games
-        fb_compatible = fb_to_add[src_df.columns.intersection(fb_to_add.columns).tolist() + [c for c in fb_to_add.columns if c not in src_df.columns]]
-        src_df = pd.concat([fb_compatible, src_df], ignore_index=True, sort=False)
+    # Build dimensions for Parcoords
+    dimensions = []
+    # Add Genre as the first (categorical) axis
+    dimensions.append(dict(
+        label='Genre',
+        values=[genre_to_id.get(g, -1) for g in df_display['Genre']],
+        tickvals=list(range(len(genres))),
+        ticktext=genres
+    ))
 
-    # Determine the years to include as a continuous inclusive range
-    min_year_heat = int(df['Year'].min())
-    max_year_heat = int(df['Year'].max())
-    years_to_use = list(range(min_year_heat, max_year_heat + 1))
+    for col in numeric_cols:
+        col_vals = df_display[col].astype(float).tolist()
+        dimensions.append(dict(label=col.replace('_', ' '), values=col_vals, range=[min(col_vals), max(col_vals)]))
 
-    # Load gapminder country->continent mapping (built-in to plotly)
-    gap = px.data.gapminder()
-    country_continent = gap[['country', 'continent']].drop_duplicates().set_index('country')['continent'].to_dict()
-    # Ensure Turkey is treated as Europe per user request
-    country_continent_override = {'Turkey': 'Europe'}
-    country_continent.update(country_continent_override)
+    customdata = df_display[['Name', 'Genre']].values
 
-    records = []
-    for yr in years_to_use:
-        df_year = src_df[src_df['Year'] == int(yr)]
-        if df_year.empty:
-            continue
-        top = df_year.sort_values('Global_Sales', ascending=False).iloc[0]
-        game_name = top['Name']
-        # regional sales for that game
-        regional = {
-            'Americas': float(top.get('NA_Sales', 0.0)),
-            'Europe': float(top.get('EU_Sales', 0.0)),
-            'Japan': float(top.get('JP_Sales', 0.0)),
-            'Other': float(top.get('Other_Sales', 0.0))
-        }
-
-        # For each country in gapminder list, assign a value equal to the regional sales for the region it belongs to
-        for country, cont in country_continent.items():
-            # Determine simplified region
-            if country == 'Japan':
-                region = 'Japan'
-            elif cont == 'Europe' or country == 'Turkey':
-                region = 'Europe'
-            elif cont == 'Americas':
-                region = 'Americas'
-            else:
-                region = 'Other'
-
-            value = regional.get(region, 0.0)
-            records.append({'year': int(yr), 'country': country, 'region': region, 'value': value, 'game': game_name})
-
-    if not records:
-        st.warning('No data available for the selected years/filters.')
-        st.stop()
-
-    heat_df = pd.DataFrame.from_records(records)
-
-    # Normalize values per frame for color scaling uniformity if desired
-    # Use absolute sales for color
-
-    # Build a mapping year -> top game (we already stored game per record)
-    top_game_per_year = heat_df.groupby('year')['game'].first().to_dict()
-
-    # Determine which years actually have heatmap records and use those for the selector
-    available_years = sorted(heat_df['year'].unique().tolist())
-
-    # Year selection control (show above the heatmap) - user requested single-year view
-    sel_year = st.select_slider(
-        'Select Year to Display:',
-        options=available_years,
-        value=available_years[-1] if available_years else None,
-        key='heatmap_single_year_fallback'
+    par_trace = go.Parcoords(
+        line=dict(color=genre_ids, colorscale='Viridis', showscale=True, colorbar=dict(title='Genre')),
+        dimensions=dimensions,
+        customdata=customdata
     )
 
-    if sel_year is None:
-        st.warning('No years available to display.')
-        st.stop()
+    fig_par = go.Figure(data=[par_trace])
+    fig_par.update_layout(height=600, margin=dict(t=40, b=10, l=10, r=10))
 
-    # Filter heat_df for the selected year only
-    heat_df_year = heat_df[heat_df['year'] == int(sel_year)]
-    if heat_df_year.empty:
-        st.warning(f'No data available for the selected year: {sel_year}')
-        st.stop()
+    st.plotly_chart(fig_par, use_container_width=True, key='plot_parcoords')
 
-    # Create a static choropleth for the selected year
-    fig_heat = px.choropleth(
-        heat_df_year,
-        locations='country',
-        locationmode='country names',
-        color='value',
-        hover_name='country',
-        hover_data=['game', 'region', 'value'],
-        color_continuous_scale='YlOrRd',
-        projection='natural earth',
-        title=f'Top-Selling Game Regional Sales in {sel_year}'
-    )
-
-    # Remove country border white lines and set dark theme
-    # Add a thin border so countries show an outline and style the hoverlabel
-    fig_heat.update_traces(marker_line_width=0.6, marker_line_color='rgba(255,255,255,0.15)')
-    fig_heat.update_geos(showland=True, landcolor='rgb(10,10,10)', showcountries=False, showcoastlines=False, showframe=False, showocean=True, oceancolor='rgb(0,0,0)', bgcolor='rgb(0,0,0)')
-
-    # Hover/tooltip styling to improve perceived "highlight" on mouseover
-    fig_heat.update_traces(
-        hovertemplate="<b>%{hovertext}</b><br>Region: %{customdata[1]}<br>Sales: %{z:.2f}M$<extra></extra>",
-        hovertext=heat_df_year['country'],
-        customdata=heat_df_year[['game', 'region', 'value']].values
-    )
-
-    fig_heat.update_layout(
-        plot_bgcolor='black',
-        paper_bgcolor='black',
-        font_color='white',
-        coloraxis_colorbar=dict(title='Sales (M)'),
-        margin=dict(t=60, b=0, l=0, r=0),
-        hovermode='closest',
-        hoverlabel=dict(bgcolor='white', font_size=12, font_color='black', bordercolor='rgba(255,255,255,0.1)')
-    )
-
-    # Annotation showing top game's name for the selected year
-    top_game = top_game_per_year.get(int(sel_year), '')
-    fig_heat.update_layout(annotations=[dict(
-        text=f"Top game: <b>{top_game}</b>",
-        x=0.02, y=0.02, xref='paper', yref='paper',
-        showarrow=False, font=dict(color='white', size=14), align='left'
-    )])
-
-    st.plotly_chart(fig_heat, use_container_width=True, key='plot_heat_tab6')
-
-    st.markdown('**Explanation:** Select a year above — the map shows that year\'s top-selling game and colors countries based on that game\'s regional sales footprint (Americas, Europe, Japan, Other).')
+    st.markdown('**Sample rows (for hover cross-reference)** — match a line by its index:')
+    df_sample = df_display.reset_index().rename(columns={'index': 'row_index'})
+    st.dataframe(df_sample[['row_index', 'Name', 'Genre'] + numeric_cols].head(200))
 
 with tabs[7]:
     st.header("Team Heatmap: Top Game Regional Footprint Over Recent Years")
