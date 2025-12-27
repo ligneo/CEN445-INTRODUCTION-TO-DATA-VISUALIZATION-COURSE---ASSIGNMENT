@@ -216,7 +216,7 @@ with tabs[1]:
 
     fig_box.update_layout(
         xaxis_title="Game Genre",
-        yaxis_title=f"{y_axis_option} (Million $)",
+        yaxis_title=f"{y_axis_option} (Million )",
         legend_title_text="Genre List",
         height=600
     )
@@ -255,7 +255,7 @@ with tabs[2]:
         color_metric = st.selectbox(
             "Color Boxes By:",
             options=['Global_Sales', 'Year'],
-            format_func=lambda x: "Total Sales (Heatmap)" if x == 'Global_Sales' else "Release Year (New vs Old)"
+            format_func=lambda x: "Total Sales" if x == 'Global_Sales' else "Release Year (New vs Old)"
         )
 
     with col_tree2:
@@ -274,14 +274,18 @@ with tabs[2]:
         
         fig_tree.update_traces(
             root_color="lightgrey",
-            hovertemplate='<b>%{label}</b><br>Sales: %{value:.2f}M$<br>%{parent}'
+            hovertemplate='<b>%{label}</b><br>Sales: %{value:.2f}M<br>%{parent}'
         )
         fig_tree.update_layout(margin=dict(t=50, l=0, r=0, b=0))
         
         st.plotly_chart(fig_tree, use_container_width=True, key='plot_treemap')
 
-# -----------------
-# CHARTS of Hilmi   # -----------------
+
+
+
+
+
+# CHARTS of Hilmi   
 
 with tabs[6]:
     st.header("Parallel Coordinates (Hilmi): Regional Sales Profile by Game")
@@ -464,7 +468,7 @@ with tabs[7]:
 
     # Hover/tooltip styling to improve perceived "highlight" on mouseover
     fig_heat.update_traces(
-        hovertemplate="<b>%{hovertext}</b><br>Region: %{customdata[1]}<br>Sales: %{z:.2f}M$<extra></extra>",
+        hovertemplate="<b>%{hovertext}</b><br>Region: %{customdata[1]}<br>Sales: %{z:.2f}M<extra></extra>",
         hovertext=heat_df_year['country'],
         customdata=heat_df_year[['game', 'region', 'value']].values
     )
@@ -565,7 +569,7 @@ with tabs[3]:
     # Hover'ın mouse'un grafikteki yerine göre o yılın verilerini göstermesi için trace'leri güncelle
     for trace in fig_stacked.data:
         trace.update(
-            hovertemplate='<b>%{fullData.name}</b><br>Year: %{x}<br>Sales: %{y:.2f}M$<extra></extra>',
+            hovertemplate='<b>%{fullData.name}</b><br>Year: %{x}<br>Sales: %{y:.2f}M<extra></extra>',
             fill='tonexty',  # Stacked area için fill ayarı
             line=dict(width=0)  # Çizgi kalınlığını 0 yap, sadece alan hover'ı tetiklesin
         )
@@ -736,7 +740,7 @@ with tabs[4]:
             target=[link['target'] for link in links],
             value=[link['value'] for link in links],
             color=link_colors,
-            hovertemplate='%{source.label} → %{target.label}<br>Sales: %{value:.2f}M$<extra></extra>'
+            hovertemplate='%{source.label} → %{target.label}<br>Sales: %{value:.2f}M<extra></extra>'
         )
     )])
     
@@ -775,7 +779,7 @@ with tabs[5]:
         title=f'{selected_publisher} - Total Sales Trend Over Years',
         labels={
             'Year': 'Year',
-            'Global_Sales': 'Total Sales (Million $)'
+            'Global_Sales': 'Total Sales (Million)'
         },
         markers=True
     )
@@ -783,7 +787,7 @@ with tabs[5]:
     # Interactive features: zoom, pan, drag
     fig_line.update_layout(
         xaxis_title="Year",
-        yaxis_title="Total Sales (Million $)",
+        yaxis_title="Total Sales (Million)",
         hovermode='x unified',
         xaxis=dict(
             rangeslider=dict(visible=True),  # Range slider at the bottom
@@ -794,7 +798,7 @@ with tabs[5]:
     
     # Update hover template
     fig_line.update_traces(
-        hovertemplate='Year: %{x}<br>Total Sales: %{y:.2f}M$<extra></extra>'
+        hovertemplate='Year: %{x}<br>Total Sales: %{y:.2f}M<extra></extra>'
     )
     
     st.plotly_chart(fig_line, use_container_width=True, key='plot_line')
@@ -821,10 +825,10 @@ with tabs[8]:
         orientation='h', # Horizontal bar chart
         color='Global_Sales', # Color by Sales value
         color_continuous_scale=px.colors.sequential.Plotly3,
-        title='Top 20 Games by Global Sales (Million Dollars)',
+        title='Top 20 Games by Global Sales',
         # Add Publisher, Platform, and Year to the tooltip (hover)
         hover_data=['Publisher', 'Platform', 'Year'],
-        labels={'Global_Sales': 'Global Sales (Million Dollars)', 'Name': 'Game Name'},
+        labels={'Global_Sales': 'Global Sales', 'Name': 'Game Name'},
         category_orders={'Name': name_order}  # Oyun isimlerini satış sırasına göre sırala
     )
     
